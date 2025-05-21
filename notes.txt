@@ -1,0 +1,108 @@
+Things to implement:
+
+- Event driven system using epoll in edge-triggered, non-blocking mode
+	- this gives O(1) time notifications
+
+- Leverage All Core
+	- one thread per core
+	- one listening socket
+	- fork or spawn N worker threads/ processes (one per core)
+
+- Each worker has Epoll Loop
+	- each core handles a subset of connection
+	- fully parallel with no shared data structures
+
+- Connection Pooling and Keep-Alives
+	- Keep persistent connections to the backend 
+	- This avoids TCP setup/teardown cost on every HTTP Request
+	- Might be difficult since the python servers i spawn for testing
+	  are not as configurable (can look for different servers or make
+          my own, simple Node.js server)
+	- Reuse backent sockets via round-robin
+
+- Zero-Copy and Batch I/O
+	- splice() / vmsplice() / tee() on linux to shuttle bytes from
+	  client socket to backend socket entirely in-kernel
+
+- State-Machine based http parsers like (joyend/http-parser) helps
+- Avoid std::string or C++ stream overhead.
+- Work on raw byte buffers with pointers
+
+
+
+- Questions:
+	- Are epoll calls (like wait) thread safe?
+		- Don't share the same descriptor
+		- Create a descriptor within each 
+		  worker and each epoll call will be distinct
+	- Or will it give the same task to multiple workers
+
+
+High level architecture:
+
+WORKERS (One per core)
+- Each worker inherits its own listener FD (with SO_REUSEPORT) and
+  creates its own epoll instance.
+- All I/O (accept, client <-> backend) happens in one edge-triggered
+  non blocking epoll loop
+- A shared connection pool ands out persistent backend sockets
+
+- SO_REUSEPORT lets each worker bind its own socket on the same port
+  with kernel-level load distribution of new connections. SO_REUSEPORT
+  allows you to load balance entire connections, not individual packets.
+  So it allows each TCP connection to be its own unit, so when you bind N
+  sockets (in N threads or processes) with setsockopt(), and then bind and
+  listen, the kernel will (on each TCP SYN) pick exactly one of those
+  listening sockets to finish the three-way handshake on. Once a connection
+  is accepted it becomes a distinct socket owned by that one thread/process
+  and all data tfor that client's TCP stream is delivered only to that one 
+  socket, no packet level mixing.
+
+- Basically just create a listening socket by doing the following:
+	- use socket() to create a stream socket
+	- use setsockopt to set the socket to SO_REUSEPORT
+	- use fcntl() to set to non blocking
+	- use a sockaddr_in struct to define the port and address (any)
+	- bind() to bind the socket to the struct
+	- listen() to listen on that socket.
+	- return socket
+	- it is best to create this socket after forking each process
+	  so that you avoid subtle shared-fd issues
+    
+EPOLL under the hood:
+- epoll_create1(0):
+	- the kernel creates 2 structures:
+		- interest list: which fds & events you care about
+		- ready list: fds that recently became ready
+
+- epoll_ctl(epfd, EPOLL_CTL_ADD, fd, *ev)
+	- adds fd to interest list with events ev.events (e.g. EPOLLIN |
+          EPOLLET)
+
+- epoll_wait(epfd, events, max_events, timeout)
+	- atomically pulls up to max_events from the ready list into
+          your events[] buffer.
+	- O(1), no scanning, just reading a ready queue
+
+- Questions
+	- what to use for http parsing and telling when the http request is finished 
+          so you don't have to keep reading?
+	- If using an externally created parser do you have to call the parser on the incomplete
+	  data to tell if it is not valid http request. Therefore multiple inefficient calls?
+
+	ANSWER: using an event-driven incremental parser like joyent/http-parser or llhttp 
+	you can allocate a parser instance per connection and each time you read bytes from recv()
+	call http_parser_execute(&parser,...) the parser keeps the internal state across all calls and then
+  	you can basically know when it finishes. You can feed the parser new chunks each time you receive
+	data, you don't necessarily need to feed it the entire thing every time.
+
+
+	- How do you maintain long lived connections (connection pooling) with the servers in the
+	  backend. Does that require you to have control over those servers, or can you do this on
+          any http server? The ones spawned using python3 -m http.server, can you use connection pooling
+          for those.
+
+	ANSWER: 
+   	- How does the connection pooling work. How does the server know when the end of a request is and then
+	  it will handle that without closing the connection if you didn't explicitly create that server? Or can
+   	  connection pooling be something entirely configured by the client? (in this case being the load balancer)
