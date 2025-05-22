@@ -32,11 +32,18 @@ void Server::worker_main() {
 		for (int i = 0; i < n; i++) {
 			int fd = events[i].data.fd;
 			auto evts = events[i].events;
-			Connection* conn = connections[fd];
 			if (fd == listen_fd) {
 				accept_new_connection(); 
 			}
 			else {
+				Connection* conn = nullptr;
+				try {
+					Connection* conn = connections[fd];
+				} catch (e) {
+					perror("error with finding connection\n");
+					continue;
+				}
+				
 				if (evts & EPOLLIN) handle_read(conn);
 				else if (evts & EPOLLOUT) handle_write(conn);
 				else if (evts & EPOLLHUP | EPOLLERR) close_connection(conn);
@@ -48,7 +55,23 @@ void Server::worker_main() {
 }
 
 void Server::accept_new_connection() {
+	int client_fd = accept(listen_fd, nullptr, nullptr);
+	if (client_fd < 0) {
+		if (errno == EAGAIN) break;
+		else perror("accept");
+	}
+	fcntl(fd, F_SETFL, O_NONBLOCK);
+	// set up event for epoll
+	epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = client_fd } };
+	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev);
+	create_connection(client_fd);
 
+
+}
+
+void Server::create_connection() {
+	Connection* connection = new Connection(client_fd);	
+	connections[client_fd] = connection;
 }
 
 void Server::handle_read(Connection* conn) {
@@ -62,3 +85,4 @@ void Server::handle_write(Connection* conn) {
 void Server::close_connection(Connection* conn) {
 
 }
+

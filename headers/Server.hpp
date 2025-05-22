@@ -15,6 +15,7 @@ class Server {
 
 		Server(int id);
 		void worker_main();
+		void create_connection(int client_fd);
 		void accept_new_connection();
 		void handle_read(Connection* conn);
 		void handle_write(Connection* conn);
