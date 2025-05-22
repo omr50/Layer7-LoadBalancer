@@ -102,7 +102,31 @@ EPOLL under the hood:
           any http server? The ones spawned using python3 -m http.server, can you use connection pooling
           for those.
 
-	ANSWER: 
+	ANSWER: HTTP/1.1 persistence is ENTIRELY CLIENT DRIVEN. The load balancer (client) in this case sends
+	Connection: keep-alive\r\n option in its http packet. Any HTTP/1.1 compliant server should keep the 
+	the socket open after responding. Pythons http server defaults to HTTP/1.0 and closes after each response.
+	Most production servers (nginx, apache, node.js, etc.) support persistent connections out of the box. 
+
    	- How does the connection pooling work. How does the server know when the end of a request is and then
 	  it will handle that without closing the connection if you didn't explicitly create that server? Or can
    	  connection pooling be something entirely configured by the client? (in this case being the load balancer)
+
+	ANSWER: 
+	How connection pooling works:
+	1. on startup the load balancer opens M connections to each backend
+	2. It tracks each connection's state (idle vs. in-flight)
+	3. when a new client request arrives:
+		- pick an idle backend socket from the pool (round robin or least connections)
+		- send the full http request on that socket
+	4. the parser knows when the requests end so it can switch to reading mode.
+	5. when response parsing is done you forward bytes to the original client, then mark that socket as complete again
+	6. if the server closes, you detect EOF on the socket, end it, and open up a fresh one.
+
+	basically all connection pooling logic lives in the load balancer. The backend just speaks HTTP/1.1, no special config
+	needed beyond it supoprting persistent connections. The balancer's parser tells it exactly when one request/response 
+	cycle is finished so you can re-use the same TCP socket for the next request.
+
+	- How much persistent connections is good to each backend. Because I know that the pool of course reduces the
+	  overhead of too many opening and closing, but what if the pool gets full, do you just allocate more and reduce
+          based on the traffic. For example like vectors can shrink and grow typically by doubling the amount of indexes
+	  would we have a similar approach here?

@@ -1,4 +1,5 @@
 #include <thread>
+#include "../headers/Worker.hpp"
 
 
 int main() {
