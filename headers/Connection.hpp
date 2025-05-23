@@ -25,6 +25,7 @@ class Connection {
 		
 		Connection(int client_fd);
 		void close_connection(int epoll_fd);
-		static void on_request_complete(http_parser* parser);
-		static void on_response_complete(http_parser* parser);
+		static int on_request_complete(http_parser* parser);
+		static int on_response_complete(http_parser* parser);
+
 };

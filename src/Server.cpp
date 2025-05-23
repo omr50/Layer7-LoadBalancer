@@ -78,6 +78,8 @@ void Server::accept_new_connection() {
 void Server::create_connection(int client_fd) {
 	Connection* connection = new Connection(client_fd);	
 	connections[client_fd] = connection;
+	printf("Server %d CREATED A CONNECTION\n", server_id);
+	handle_read(connection);
 }
 
 void Server::handle_read(Connection* conn) {
@@ -115,8 +117,14 @@ void Server::handle_read(Connection* conn) {
 		// n = 0 or other errors
 		else {
 			close_connection(conn);
+			return;
 		}
 	}
+	for (int i = 0 ; i < vec_buffer->size(); i++) {
+		printf("%c", (*vec_buffer)[i]);
+	}
+	printf("\n");
+	printf("Request coming for server %d\n", server_id);
 }
 
 void Server::handle_write(Connection* conn) {
@@ -126,5 +134,11 @@ void Server::handle_write(Connection* conn) {
 
 void Server::close_connection(Connection* conn) {
 	conn->close_connection(epoll_fd);	
+	auto it = connections.find(conn->client_fd);
+	if (it != connections.end()) {
+		connections.erase(it);
+	}
+	printf("Deleted Connection!\n");
+	delete conn;
 }
 
