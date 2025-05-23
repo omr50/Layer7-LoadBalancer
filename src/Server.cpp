@@ -36,6 +36,11 @@ void Server::worker_main() {
 				accept_new_connection(); 
 			}
 			else {
+				auto it = connections.find(fd);
+				if (it  == connections.end()) {
+					printf("Can't find connection");
+					continue;
+				}
 				Connection* conn = nullptr;
 				try {
 					Connection* conn = connections[fd];
@@ -55,34 +60,68 @@ void Server::worker_main() {
 }
 
 void Server::accept_new_connection() {
-	int client_fd = accept(listen_fd, nullptr, nullptr);
-	if (client_fd < 0) {
-		if (errno == EAGAIN) break;
-		else perror("accept");
+	// edge triggered so keep accepting until no more
+	while (true) {
+		int client_fd = accept(listen_fd, nullptr, nullptr);
+		if (client_fd < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+
+			perror("accept");
+			return;
+		}
+		fcntl(client_fd, F_SETFL, O_NONBLOCK);
+		// set up event for epoll
+		epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = client_fd } };
+		epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev);
+		create_connection(client_fd);
 	}
-	fcntl(fd, F_SETFL, O_NONBLOCK);
-	// set up event for epoll
-	epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = client_fd } };
-	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev);
-	create_connection(client_fd);
-
-
+	
 }
 
-void Server::create_connection() {
+void Server::create_connection(int client_fd) {
 	Connection* connection = new Connection(client_fd);	
 	connections[client_fd] = connection;
 }
 
 void Server::handle_read(Connection* conn) {
+	int fd = (conn->status == Status::READING_REQUEST) ? conn->client_socket : conn->server_socket;
+	char buff[4096];
+	http_parser* parser = (conn->status == Status::READING_REQUEST) ? &conn->request_parser : &conn->response_parser;
+	http_parser_settings* parser_settings = (conn->status == Status::READING_REQUEST) ? &conn->request_settings: &conn->response_settings;
+	std::vector<unsigned char> vec_buffer = (conn->status == Status::READING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
 
+	while (true) {
+		
+		ssize_t n = read(fd, buff, sizeof(buff));
+		if (n > 0) {
+			vec_buffer->insert(
+					vec_buffer->end(),
+					buff,
+					buff + n
+			);
+
+			size_t parsed = http_parser_execute(
+
+					parser,	
+					parser_settings
+					buff,
+					buff+n);
+		} 
+		else if (n == -1 && (errno == EAGAIN|| errno == EWOULDBLOCK)) {
+			break;
+		}
+		// n = 0 or other errors
+		else {
+			close_connection(conn);
+		}
 }
 
 void Server::handle_write(Connection* conn) {
-
+	return;
 }
 
-void Server::close_connection(Connection* conn) {
 
+void Server::close_connection(Connection* conn) {
+	conn->close_connection(epoll_fd);	
 }
 

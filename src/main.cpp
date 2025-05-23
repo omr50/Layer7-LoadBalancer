@@ -1,5 +1,5 @@
 #include <thread>
-#include "../headers/Worker.hpp"
+#include "../headers/Server.hpp"
 
 
 int main() {
