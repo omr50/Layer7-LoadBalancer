@@ -2,20 +2,24 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
 
 Server::Server(int id) {
 	server_id = id;
-	epoll_fd = epoll_create1();
+	epoll_fd = epoll_create1(0);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,  &one, sizeof(one));
 	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
 	fcntl(fd, F_SETFL, O_NONBLOCK);
+	uint16_t port = 8080;
 	sockaddr_in addr {AF_INET, htons(port), INADDR_ANY};
 	bind(fd, (sockaddr*)&addr, sizeof(addr));
 	listen(fd, SOMAXCONN);
 	listen_fd = fd;
-	connections[listen_fd] = new Connection();
 	printf("Server %d's setup complete\n", server_id);
 }
 
@@ -41,14 +45,7 @@ void Server::worker_main() {
 					printf("Can't find connection");
 					continue;
 				}
-				Connection* conn = nullptr;
-				try {
-					Connection* conn = connections[fd];
-				} catch (e) {
-					perror("error with finding connection\n");
-					continue;
-				}
-				
+				Connection* conn = it->second;
 				if (evts & EPOLLIN) handle_read(conn);
 				else if (evts & EPOLLOUT) handle_write(conn);
 				else if (evts & EPOLLHUP | EPOLLERR) close_connection(conn);
@@ -84,11 +81,17 @@ void Server::create_connection(int client_fd) {
 }
 
 void Server::handle_read(Connection* conn) {
-	int fd = (conn->status == Status::READING_REQUEST) ? conn->client_socket : conn->server_socket;
+	int fd = (conn->state == State::READING_REQUEST) ? conn->client_fd : conn->server_fd;
 	char buff[4096];
-	http_parser* parser = (conn->status == Status::READING_REQUEST) ? &conn->request_parser : &conn->response_parser;
-	http_parser_settings* parser_settings = (conn->status == Status::READING_REQUEST) ? &conn->request_settings: &conn->response_settings;
-	std::vector<unsigned char> vec_buffer = (conn->status == Status::READING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
+	http_parser* parser = (conn->state == State::READING_REQUEST) ? 
+		&conn->request_parser 
+		: &conn->response_parser;
+
+	http_parser_settings* parser_settings = (conn->state == State::READING_REQUEST) ? 
+		&conn->request_settings
+		: &conn->response_settings;
+
+	std::vector<unsigned char> *vec_buffer = (conn->state == State::READING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
 
 	while (true) {
 		
@@ -101,11 +104,10 @@ void Server::handle_read(Connection* conn) {
 			);
 
 			size_t parsed = http_parser_execute(
-
 					parser,	
-					parser_settings
+					parser_settings,
 					buff,
-					buff+n);
+					n);
 		} 
 		else if (n == -1 && (errno == EAGAIN|| errno == EWOULDBLOCK)) {
 			break;
@@ -114,6 +116,7 @@ void Server::handle_read(Connection* conn) {
 		else {
 			close_connection(conn);
 		}
+	}
 }
 
 void Server::handle_write(Connection* conn) {

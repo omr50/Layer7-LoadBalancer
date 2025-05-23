@@ -11,7 +11,7 @@ class Server {
 		int listen_fd;
 		int server_id;
 		std::unordered_map<int, Connection*> connections;	
-		std::vector<epoll_event> events(1024);
+		std::vector<epoll_event> events{1024};
 
 		Server(int id);
 		void worker_main();

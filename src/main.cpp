@@ -1,5 +1,9 @@
 #include <thread>
 #include "../headers/Server.hpp"
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 int main() {
