@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include "./Connection.hpp"
+#include "./ConnectionPool.hpp"
 
 class Server {
 
@@ -12,6 +13,7 @@ class Server {
 		int server_id;
 		std::unordered_map<int, Connection*> connections;	
 		std::vector<epoll_event> events{1024};
+		ConnectionPool* pool;
 
 		Server(int id);
 		void worker_main();

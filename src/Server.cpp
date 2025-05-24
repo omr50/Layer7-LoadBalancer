@@ -9,6 +9,7 @@
 
 Server::Server(int id) {
 	server_id = id;
+	pool = new ConnectionPool(8080, 100);
 	epoll_fd = epoll_create1(0);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	int one = 1;
@@ -39,6 +40,26 @@ void Server::worker_main() {
 			if (fd == listen_fd) {
 				accept_new_connection(); 
 			}
+			else if (pool->conn_exists(fd)) {
+				int err = 0;
+				socklen_t len = sizeof(err);
+				pool->connecting_fds.erase(fd);
+				getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len);
+				epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
+				if (err == 0) {
+					pool->update_connection_status(fd, true);
+					pool->curr_connected++;
+					printf("connected %d connections for server %d\n", pool->curr_connected, server_id);
+					if (pool->curr_connected == pool->total_connections)
+						printf("ALL SOCKETS SUCCESSFULLY CONNECTED TO BACKEND!\n");
+				} else {
+
+					pool->update_connection_status(fd, false);
+					printf("FAILED TO CONNECT TO BACKEND, RETRY LATER!\n");
+					close(fd);
+				}
+			}
+
 			else {
 				auto it = connections.find(fd);
 				if (it  == connections.end()) {

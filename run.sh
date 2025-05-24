@@ -16,7 +16,7 @@ if [[ "${1:-}" == "--asan" ]]; then
     fi
 
     g++ -std=c++17 -O1 -g $SAN_FLAGS \
-        src/Connection.cpp src/Server.cpp src/main.cpp \
+        src/Connection.cpp src/ConnectionPool.cpp src/Server.cpp src/main.cpp \
             -Iheaders -lhttp_parser -pthread -o "$OUTPUT"
 
             echo "Built 👉 ./$OUTPUT"

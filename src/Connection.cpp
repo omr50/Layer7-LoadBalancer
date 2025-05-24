@@ -25,7 +25,7 @@ int Connection::on_request_complete(http_parser* parser) {
 
     printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
     // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
-    conn->initiate_write_state();
+    // conn->initiate_write_state();
     return 0;
 }
 
