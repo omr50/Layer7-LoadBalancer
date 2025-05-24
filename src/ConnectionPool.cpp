@@ -19,6 +19,7 @@ ConnectionPool::ConnectionPool(int start_port, int num_conn_per_server, int epol
 	: start_port(start_port), conn_per_server(num_conn_per_server), epoll_fd(epoll_fd)
 {
 	curr_connected = 0;
+	curr_server = 0;
 	total_connections = num_conn_per_server * 8; 
 	create_connections();
 }
@@ -95,9 +96,28 @@ void ConnectionPool::update_connection_status(int fd, bool status) {
 }
 
 
-void ConnectionPool::return_conn(int conn) {
-	return;
+int ConnectionPool::return_conn() {
+	int connection_fd = -1;
+	for (int i = 0; i < 100; i ++) {
+		auto conn = &connections[curr_server][i];
+		if (conn->free) {
+			connection_fd = conn->fd;
+			printf("Got a new socket #%d from server %d\n", connection_fd, start_port + curr_server);
+			curr_server = (curr_server + 1) % 8;
+			printf("Next server is: %d\n", start_port + curr_server);
+			conn->free = false;	
+			break;
+		}
+	}
+
+	if (connection_fd == -1) {
+		perror("Didn't find any available connections!\n");
+		return -1;
+	}
+	
+	return connection_fd;
 }
+
 void ConnectionPool::delete_conn(int conn) {
 	return;
 }

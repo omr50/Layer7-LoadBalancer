@@ -1,10 +1,12 @@
 #include "../headers/Connection.hpp"
+#include "../headers/Server.hpp"
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 
-Connection::Connection(int client_fd) : client_fd(client_fd)  {
+
+Connection::Connection(Server* server, int client_fd) : server(server), client_fd(client_fd)  {
         http_parser_init(&response_parser, HTTP_RESPONSE);
 	memset(&request_settings, 0, sizeof(request_settings));
 	memset(&response_settings, 0, sizeof(response_settings));
@@ -25,6 +27,7 @@ int Connection::on_request_complete(http_parser* parser) {
 
     printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
     // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
+    conn->server_fd = conn->server->pool->return_conn();
     // conn->initiate_write_state();
     return 0;
 }

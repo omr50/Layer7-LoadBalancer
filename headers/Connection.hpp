@@ -1,4 +1,5 @@
 // place holder
+#pragma once
 #include <http_parser.h>
 #include <vector>
 
@@ -10,11 +11,13 @@ enum class State {
 	CLOSED
 };
 
+class Server;
 
 class Connection {
 	public:
 		int client_fd = -1;
 		int server_fd = -1;
+		Server* server;
 		State state = State::READING_REQUEST;
 		http_parser request_parser;
 		http_parser_settings request_settings;
@@ -23,7 +26,7 @@ class Connection {
 		std::vector<unsigned char> request_buffer;
 		std::vector<unsigned char> response_buffer;
 		
-		Connection(int client_fd);
+		Connection(Server* server, int client_fd);
 		void initiate_write_state();
 		void close_connection(int epoll_fd);
 		static int on_request_complete(http_parser* parser);

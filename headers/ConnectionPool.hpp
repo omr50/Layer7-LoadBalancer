@@ -18,11 +18,13 @@ class ConnectionPool {
 		int curr_connected;
 		int start_port;
 		int epoll_fd;
+		int curr_server;
 
 		ConnectionPool(int start_port, int num_conn_per_server, int epoll_fd);
 		void create_connections();
 		bool conn_exists(int fd);
-		void return_conn(int conn);
+		int return_conn();
+
 		void delete_conn(int conn);
 		void replace_conn(int conn);
 		void update_connection_status(int fd, bool status);

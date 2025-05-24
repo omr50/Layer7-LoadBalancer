@@ -97,7 +97,7 @@ void Server::accept_new_connection() {
 }
 
 void Server::create_connection(int client_fd) {
-	Connection* connection = new Connection(client_fd);	
+	Connection* connection = new Connection(this, client_fd);	
 	connections[client_fd] = connection;
 	printf("Server %d CREATED A CONNECTION\n", server_id);
 	handle_read(connection);
