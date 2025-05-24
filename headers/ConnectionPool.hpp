@@ -19,7 +19,7 @@ class ConnectionPool {
 		int start_port;
 		int epoll_fd;
 
-		ConnectionPool(int start_port, int num_conn_per_server);
+		ConnectionPool(int start_port, int num_conn_per_server, int epoll_fd);
 		void create_connections();
 		bool conn_exists(int fd);
 		void return_conn(int conn);

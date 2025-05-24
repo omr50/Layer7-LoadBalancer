@@ -9,14 +9,14 @@
 
 Server::Server(int id) {
 	server_id = id;
-	pool = new ConnectionPool(8080, 100);
 	epoll_fd = epoll_create1(0);
+	pool = new ConnectionPool(8080, 100, epoll_fd);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,  &one, sizeof(one));
 	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one));
 	fcntl(fd, F_SETFL, O_NONBLOCK);
-	uint16_t port = 8080;
+	uint16_t port = 8000;
 	sockaddr_in addr {AF_INET, htons(port), INADDR_ANY};
 	bind(fd, (sockaddr*)&addr, sizeof(addr));
 	listen(fd, SOMAXCONN);

@@ -14,9 +14,9 @@
 #include <netinet/tcp.h>
 
 
-ConnectionPool::ConnectionPool(int start_port, int num_conn_per_server) 
+ConnectionPool::ConnectionPool(int start_port, int num_conn_per_server, int epoll_fd) 
 
-	: start_port(start_port), conn_per_server(num_conn_per_server) 
+	: start_port(start_port), conn_per_server(num_conn_per_server), epoll_fd(epoll_fd)
 {
 	curr_connected = 0;
 	total_connections = num_conn_per_server * 8; 
@@ -26,7 +26,7 @@ ConnectionPool::ConnectionPool(int start_port, int num_conn_per_server)
 
 void ConnectionPool::create_connections() {
 	for (int port = start_port;port < start_port + 8; port++) {
-		std::vector<LL_Connection> connections;
+		std::vector<LL_Connection> curr_server_connections;
 		for (int i = 0; i < conn_per_server; i++) {
 
 			int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -66,8 +66,9 @@ void ConnectionPool::create_connections() {
 			epoll_event ev{ .events = EPOLLOUT | EPOLLERR, .data = {.fd = fd} };
 			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 			connecting_fds.insert(fd);
-			connections.push_back({ port, fd, false });
+			curr_server_connections.push_back({ port, fd, false });
 		}
+		connections.push_back(curr_server_connections);
 	}
 	printf("Initiated all connections (still waiting to complete)\n");
 }
@@ -82,7 +83,10 @@ void ConnectionPool::update_connection_status(int fd, bool status) {
 	for (int port = 0; port < 8; port++) {
 		for (int i = 0; i < 100; i++) {
 			if (connections[port][i].fd == fd) {
-				connections[port][i] = { start_port + port, fd, status };
+				connections[port][i].server = start_port;
+				connections[port][i].fd = fd;
+				connections[port][i].free = status;
+				// connections[port][i] = { start_port + port, fd, status };
 				return;
 			}
 		}
