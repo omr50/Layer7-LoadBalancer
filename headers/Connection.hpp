@@ -24,8 +24,8 @@ class Connection {
 		std::vector<unsigned char> response_buffer;
 		
 		Connection(int client_fd);
+		void initiate_write_state();
 		void close_connection(int epoll_fd);
 		static int on_request_complete(http_parser* parser);
 		static int on_response_complete(http_parser* parser);
-
 };

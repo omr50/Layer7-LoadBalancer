@@ -22,8 +22,10 @@ Connection::Connection(int client_fd) : client_fd(client_fd)  {
 int Connection::on_request_complete(http_parser* parser) {
     auto* conn = static_cast<Connection*>(parser->data);
     conn->state = State::WRITING_REQUEST;
+
     printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
     // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
+    conn->initiate_write_state();
     return 0;
 }
 
