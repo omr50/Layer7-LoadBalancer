@@ -24,7 +24,9 @@ class Connection {
 		http_parser response_parser;
 		http_parser_settings response_settings;
 		std::vector<unsigned char> request_buffer;
+		int req_bytes_written = 0;
 		std::vector<unsigned char> response_buffer;
+		int res_bytes_written = 0;
 		
 		Connection(Server* server, int client_fd);
 		void initiate_write_state();

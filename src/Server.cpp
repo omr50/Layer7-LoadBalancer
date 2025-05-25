@@ -49,7 +49,6 @@ void Server::worker_main() {
 				if (err == 0) {
 					pool->update_connection_status(fd, true);
 					pool->curr_connected++;
-					printf("connected %d connections for server %d\n", pool->curr_connected, server_id);
 					if (pool->curr_connected == pool->total_connections)
 						printf("ALL SOCKETS SUCCESSFULLY CONNECTED TO BACKEND!\n");
 				} else {
@@ -149,7 +148,43 @@ void Server::handle_read(Connection* conn) {
 }
 
 void Server::handle_write(Connection* conn) {
-	return;
+	int fd = (conn->state == State::WRITING_REQUEST) ? conn->server_fd: conn->client_fd;
+	std::vector<unsigned char> *vec_buffer = (conn->state == State::WRITING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
+	int* bytes_written = (conn->state == State::WRITING_REQUEST) ? &conn->req_bytes_written : &conn->res_bytes_written;
+
+	while (true) {
+		printf("Writing!\n");
+		ssize_t n = write(fd, vec_buffer->data() + (*bytes_written), vec_buffer->size() - (*bytes_written));
+		(*bytes_written) += n;
+		if ((*bytes_written) == vec_buffer->size()) {
+			printf("COMPLETED writing REQUEST DATA TO SERVER\n");
+			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
+			epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = fd} };
+			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+			if (conn->state == State::WRITING_REQUEST)
+				conn->state = State::READING_RESPONSE;
+			else if (conn->state == State::WRITING_RESPONSE)
+				printf("Finished!\n");
+
+			break;
+		}
+		else if (n > 0) {
+			printf("wrote something!\n");
+		}
+		else if (n == 0) {
+			break;
+		}
+		else {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				break;
+			}
+			else {
+				perror("WRITE ERROR REQUEST -> SERVER\n");
+				break;
+			}
+		}	
+
+	}
 }
 
 

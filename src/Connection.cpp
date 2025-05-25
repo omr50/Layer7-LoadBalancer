@@ -28,12 +28,26 @@ int Connection::on_request_complete(http_parser* parser) {
     printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
     // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
     conn->server_fd = conn->server->pool->return_conn();
+    epoll_ctl(conn->server->epoll_fd, EPOLL_CTL_DEL, conn->client_fd, nullptr);
+    epoll_event ev { .events = EPOLLOUT | EPOLLET, .data = { .fd = conn->server_fd } };
+    epoll_ctl(conn->server->epoll_fd, EPOLL_CTL_ADD, conn->server_fd, &ev);
+    conn->server->connections[conn->server_fd] = conn;
+    
     // conn->initiate_write_state();
     return 0;
 }
 
 int Connection::on_response_complete(http_parser* parser) {
-	return 0;
+
+    auto* conn = static_cast<Connection*>(parser->data);
+    conn->state = State::WRITING_RESPONSE;
+
+    // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
+    epoll_ctl(conn->server->epoll_fd, EPOLL_CTL_DEL, conn->server_fd, nullptr);
+    epoll_event ev { .events = EPOLLOUT | EPOLLET, .data = { .fd = conn->client_fd} };
+    epoll_ctl(conn->server->epoll_fd, EPOLL_CTL_ADD, conn->client_fd, &ev);
+    // conn->initiate_write_state();
+    return 0;
 }
 
 void Connection::close_connection(int epoll_fd) {
