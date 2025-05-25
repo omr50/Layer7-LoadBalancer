@@ -92,7 +92,7 @@ void ConnectionPool::update_connection_status(int fd, bool status) {
 			}
 		}
 	}
-	printf("CONNECTION DOESN't EXIST!\n");
+	// printf("CONNECTION DOESN't EXIST!\n");
 }
 
 
@@ -102,9 +102,9 @@ int ConnectionPool::return_conn() {
 		auto conn = &connections[curr_server][i];
 		if (conn->free) {
 			connection_fd = conn->fd;
-			printf("Got a new socket #%d from server %d\n", connection_fd, start_port + curr_server);
+			// printf("Got a new socket #%d from server %d\n", connection_fd, start_port + curr_server);
 			curr_server = (curr_server + 1) % 8;
-			printf("Next server is: %d\n", start_port + curr_server);
+			// printf("Next server is: %d\n", start_port + curr_server);
 			conn->free = false;	
 			break;
 		}

@@ -82,7 +82,6 @@ void Server::accept_new_connection() {
 		int client_fd = accept(listen_fd, nullptr, nullptr);
 		if (client_fd < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) break;
-
 			perror("accept");
 			return;
 		}
@@ -98,7 +97,7 @@ void Server::accept_new_connection() {
 void Server::create_connection(int client_fd) {
 	Connection* connection = new Connection(this, client_fd);	
 	connections[client_fd] = connection;
-	printf("Server %d CREATED A CONNECTION\n", server_id);
+	// printf("Server %d CREATED A CONNECTION\n", server_id);
 	handle_read(connection);
 }
 
@@ -140,11 +139,8 @@ void Server::handle_read(Connection* conn) {
 			return;
 		}
 	}
-	for (int i = 0 ; i < vec_buffer->size(); i++) {
-		printf("%c", (*vec_buffer)[i]);
-	}
-	printf("\n");
-	printf("Request coming for server %d\n", server_id);
+	//printf("\n");
+	//printf("Request coming for server %d\n", server_id);
 }
 
 void Server::handle_write(Connection* conn) {
@@ -153,23 +149,26 @@ void Server::handle_write(Connection* conn) {
 	int* bytes_written = (conn->state == State::WRITING_REQUEST) ? &conn->req_bytes_written : &conn->res_bytes_written;
 
 	while (true) {
-		printf("Writing!\n");
+		// printf("Writing!\n");
 		ssize_t n = write(fd, vec_buffer->data() + (*bytes_written), vec_buffer->size() - (*bytes_written));
 		(*bytes_written) += n;
 		if ((*bytes_written) == vec_buffer->size()) {
-			printf("COMPLETED writing REQUEST DATA TO SERVER\n");
+			// printf("COMPLETED writing REQUEST DATA TO SERVER\n");
 			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 			epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = fd} };
 			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 			if (conn->state == State::WRITING_REQUEST)
 				conn->state = State::READING_RESPONSE;
-			else if (conn->state == State::WRITING_RESPONSE)
-				printf("Finished!\n");
+			else if (conn->state == State::WRITING_RESPONSE){
+				// printf("Finished!\n");
+				close_connection(conn);
+
+			}
 
 			break;
 		}
 		else if (n > 0) {
-			printf("wrote something!\n");
+			// printf("wrote something!\n");
 		}
 		else if (n == 0) {
 			break;
@@ -194,7 +193,13 @@ void Server::close_connection(Connection* conn) {
 	if (it != connections.end()) {
 		connections.erase(it);
 	}
-	printf("Deleted Connection!\n");
+	it = connections.find(conn->server_fd);
+	if (it != connections.end()) {
+		connections.erase(it);
+	}
+	if (conn->server_fd != -1)
+		conn->server->pool->update_connection_status(conn->server_fd, true);
+	// printf("Deleted Connection!\n");
 	delete conn;
 }
 

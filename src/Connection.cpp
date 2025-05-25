@@ -25,7 +25,7 @@ int Connection::on_request_complete(http_parser* parser) {
     auto* conn = static_cast<Connection*>(parser->data);
     conn->state = State::WRITING_REQUEST;
 
-    printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
+    // printf("FINISHED READING CLIENT REQUEST!!!!!!!!\n");
     // initiate write -> grab a pooled backend_fd, then register EPOLLOUT on it, etc.
     conn->server_fd = conn->server->pool->return_conn();
     epoll_ctl(conn->server->epoll_fd, EPOLL_CTL_DEL, conn->client_fd, nullptr);
@@ -56,7 +56,7 @@ void Connection::close_connection(int epoll_fd) {
 
 	if (client_fd != -1)
 		close(client_fd);
-	printf("closed connection socket, and removed from epoll\n");
+	// printf("closed connection socket, and removed from epoll\n");
 
 	// if (server_fd != -1)
 		// pool->return_conn(server_fd);
