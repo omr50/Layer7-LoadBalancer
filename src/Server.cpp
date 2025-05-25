@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <chrono>
 
 Server::Server(int id) {
 	server_id = id;
 	epoll_fd = epoll_create1(0);
-	pool = new ConnectionPool(8080, 100, epoll_fd);
+	pool = new ConnectionPool(8080, 120, epoll_fd);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,  &one, sizeof(one));
@@ -29,8 +30,25 @@ void Server::worker_main() {
 	epoll_event ev { .events=EPOLLIN, .data={.fd = listen_fd} };
 	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &ev); 
 	
+	using Clock = std::chrono::steady_clock;
+	auto last_stats = Clock::now();
+	auto const stats_interval = std::chrono::seconds(5);
 	// main loop
 	while (true) {
+		auto now = Clock::now();
+		if (now - last_stats >= stats_interval) {
+			last_stats = now;
+			int pool_used = 0;
+			for (int i = 0; i < 8; i ++) {
+				for (int j = 0; j < pool->conn_per_server; j ++) {
+					if (!pool->connections[i][j].free)
+						pool_used++;
+
+				}
+
+			}
+			printf("Num connections: %ld\nNum pool used: %d\n", connections.size(), pool_used);	
+		}
 
 		int n = epoll_wait(epoll_fd, events.data(), events.size(), -1);
 

@@ -82,7 +82,7 @@ bool ConnectionPool::conn_exists(int fd) {
 
 void ConnectionPool::update_connection_status(int fd, bool status) {
 	for (int port = 0; port < 8; port++) {
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < conn_per_server; i++) {
 			if (connections[port][i].fd == fd) {
 				connections[port][i].server = start_port;
 				connections[port][i].fd = fd;
@@ -98,7 +98,7 @@ void ConnectionPool::update_connection_status(int fd, bool status) {
 
 int ConnectionPool::return_conn() {
 	int connection_fd = -1;
-	for (int i = 0; i < 100; i ++) {
+	for (int i = 0; i < conn_per_server; i ++) {
 		auto conn = &connections[curr_server][i];
 		if (conn->free) {
 			connection_fd = conn->fd;
