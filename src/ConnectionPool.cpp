@@ -19,16 +19,15 @@ ConnectionPool::ConnectionPool(int start_port, int num_conn_per_server, int epol
 	: start_port(start_port), conn_per_server(num_conn_per_server), epoll_fd(epoll_fd)
 {
 	curr_connected = 0;
-	curr_server = 0;
+	curr_index = 0;
 	total_connections = num_conn_per_server * 8; 
 	create_connections();
 }
 
 
 void ConnectionPool::create_connections() {
-	for (int port = start_port;port < start_port + 8; port++) {
-		std::vector<LL_Connection> curr_server_connections;
-		for (int i = 0; i < conn_per_server; i++) {
+	for (int i = 0; i < conn_per_server; i++) {
+		for (int port = start_port;port < start_port + 8; port++) {
 
 			int fd = socket(AF_INET, SOCK_STREAM, 0);
 			if (fd < 0) throw std::runtime_error("socket: " + std::string(std::strerror(errno)));
@@ -67,9 +66,10 @@ void ConnectionPool::create_connections() {
 			epoll_event ev{ .events = EPOLLOUT | EPOLLERR, .data = {.fd = fd} };
 			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 			connecting_fds.insert(fd);
-			curr_server_connections.push_back({ port, fd, false });
+			// printf("fd is %d\n", fd);
+			connections.push_back({ port, fd, false});
+			fd2idx[fd] = connections.size() - 1;
 		}
-		connections.push_back(curr_server_connections);
 	}
 	printf("Initiated all connections (still waiting to complete)\n");
 }
@@ -81,41 +81,35 @@ bool ConnectionPool::conn_exists(int fd) {
 }
 
 void ConnectionPool::update_connection_status(int fd, bool status) {
-	for (int port = 0; port < 8; port++) {
-		for (int i = 0; i < conn_per_server; i++) {
-			if (connections[port][i].fd == fd) {
-				connections[port][i].server = start_port;
-				connections[port][i].fd = fd;
-				connections[port][i].free = status;
-				// connections[port][i] = { start_port + port, fd, status };
-				return;
-			}
-		}
+	auto it = fd2idx.find(fd);
+	if (it != fd2idx.end()) {
+		auto idx = it->second;
+		connections[idx].free = status;
+		// printf("updated conn fd %d status %b\n", connections[idx].fd, connections[idx].free);
+		// connections[idx].server = start_port;
+		connections[idx].fd = fd;
+		// connections[port][i] = { start_port + port, fd, status };
+		return;
 	}
-	// printf("CONNECTION DOESN't EXIST!\n");
+	printf("CONNECTION DOESN't EXIST!\n");
 }
 
 
-int ConnectionPool::return_conn() {
-	int connection_fd = -1;
-	for (int i = 0; i < conn_per_server; i ++) {
-		auto conn = &connections[curr_server][i];
-		if (conn->free) {
-			connection_fd = conn->fd;
-			// printf("Got a new socket #%d from server %d\n", connection_fd, start_port + curr_server);
-			curr_server = (curr_server + 1) % 8;
-			// printf("Next server is: %d\n", start_port + curr_server);
-			conn->free = false;	
-			break;
-		}
+LL_Connection* ConnectionPool::return_conn() {
+	auto conn = &connections[curr_index];
+	// printf("Conn status %d %d %b\n", conn->server, conn->fd, conn->free);
+	if (conn->free) {
+		// printf("Got a new socket #%d from server %d\n", connection_fd, start_port + curr_server);
+		curr_index = (curr_index + 1) % (8 * conn_per_server);
+		// printf("Next server is: %d\n", start_port + curr_server);
+		conn->free = false;	
+		return conn;
 	}
-
-	if (connection_fd == -1) {
+	else {
 		perror("Didn't find any available connections!\n");
-		return -1;
+		return nullptr;
 	}
 	
-	return connection_fd;
 }
 
 void ConnectionPool::delete_conn(int conn) {

@@ -10,6 +10,11 @@
 
 Server::Server(int id) {
 	server_id = id;
+	client_pool.reserve(3000);
+	for (int i = 0; i < 3000; i++) {
+		client_pool.emplace_back(this);
+		free_connections.push_back(&client_pool.back());
+	}
 	epoll_fd = epoll_create1(0);
 	pool = new ConnectionPool(8080, 120, epoll_fd);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -30,11 +35,12 @@ void Server::worker_main() {
 	epoll_event ev { .events=EPOLLIN, .data={.fd = listen_fd} };
 	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &ev); 
 	
-	using Clock = std::chrono::steady_clock;
-	auto last_stats = Clock::now();
-	auto const stats_interval = std::chrono::seconds(5);
+	// using Clock = std::chrono::steady_clock;
+	// auto last_stats = Clock::now();
+	// auto const stats_interval = std::chrono::seconds(5);
 	// main loop
 	while (true) {
+		/*
 		auto now = Clock::now();
 		if (now - last_stats >= stats_interval) {
 			last_stats = now;
@@ -49,7 +55,7 @@ void Server::worker_main() {
 			}
 			printf("Num connections: %ld\nNum pool used: %d\n", connections.size(), pool_used);	
 		}
-
+		*/
 		int n = epoll_wait(epoll_fd, events.data(), events.size(), -1);
 
 		for (int i = 0; i < n; i++) {
@@ -113,14 +119,22 @@ void Server::accept_new_connection() {
 }
 
 void Server::create_connection(int client_fd) {
-	Connection* connection = new Connection(this, client_fd);	
-	connections[client_fd] = connection;
-	// printf("Server %d CREATED A CONNECTION\n", server_id);
-	handle_read(connection);
+	if (free_connections.size()) {
+		Connection* connection = free_connections[free_connections.size() - 1];	
+		free_connections.pop_back();
+		connection->client_fd = client_fd;
+		connections[client_fd] = connection;
+		// printf("Server %d CREATED A CONNECTION\n", server_id);
+		handle_read(connection);
+	}
+	else {
+		perror("failed to find an open connection!\n");
+	}
 }
 
 void Server::handle_read(Connection* conn) {
 	int fd = (conn->state == State::READING_REQUEST) ? conn->client_fd : conn->server_fd;
+
 	char buff[4096];
 	http_parser* parser = (conn->state == State::READING_REQUEST) ? 
 		&conn->request_parser 
@@ -133,8 +147,8 @@ void Server::handle_read(Connection* conn) {
 	std::vector<unsigned char> *vec_buffer = (conn->state == State::READING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
 
 	while (true) {
-		
 		ssize_t n = read(fd, buff, sizeof(buff));
+
 		if (n > 0) {
 			vec_buffer->insert(
 					vec_buffer->end(),
@@ -207,17 +221,20 @@ void Server::handle_write(Connection* conn) {
 
 void Server::close_connection(Connection* conn) {
 	conn->close_connection(epoll_fd);	
-	auto it = connections.find(conn->client_fd);
+	/* auto it = connections.find(conn->client_fd);
 	if (it != connections.end()) {
 		connections.erase(it);
 	}
 	it = connections.find(conn->server_fd);
 	if (it != connections.end()) {
 		connections.erase(it);
-	}
+	}*/
+
 	if (conn->server_fd != -1)
-		conn->server->pool->update_connection_status(conn->server_fd, true);
+		conn->backend_connection->free = true;
+	conn->backend_connection = nullptr;
+	conn->reset();
+	free_connections.push_back(conn);	
 	// printf("Deleted Connection!\n");
-	delete conn;
 }
 
