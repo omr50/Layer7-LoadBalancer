@@ -1,0 +1,33 @@
+===== Sun May 25 23:29:14 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    17.85ms   15.96ms 177.38ms   76.68%
+    Req/Sec     1.22M   187.31k    2.14M    74.61%
+  96430894 requests in 10.11s, 10.69GB read
+  Socket errors: connect 0, read 81720, write 3, timeout 0
+Requests/sec: 9541837.15
+Transfer/sec:      1.06GB
+
+===== Sun May 25 23:29:41 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.94ms   16.18ms 151.18ms   72.73%
+    Req/Sec     1.25M   184.59k    1.95M    71.10%
+  98696616 requests in 10.07s, 10.94GB read
+  Socket errors: connect 0, read 74994, write 1, timeout 0
+Requests/sec: 9803286.49
+Transfer/sec:      1.09GB
+
+===== Sun May 25 23:30:19 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    22.47ms   19.51ms 158.72ms   73.96%
+    Req/Sec     1.21M   201.25k    2.21M    69.75%
+  95425945 requests in 10.09s, 10.58GB read
+  Socket errors: connect 0, read 67269, write 1, timeout 0
+Requests/sec: 9454944.33
+Transfer/sec:      1.05GB
+
