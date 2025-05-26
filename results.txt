@@ -31,3 +31,47 @@ Running 10s test @ http://localhost:8000
 Requests/sec: 9454944.33
 Transfer/sec:      1.05GB
 
+===== Sun May 25 23:42:12 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    10.37ms    9.06ms  90.50ms   75.17%
+    Req/Sec   827.92k   147.94k    1.89M    72.98%
+  65527369 requests in 10.09s, 7.26GB read
+  Socket errors: connect 0, read 135358, write 1, timeout 0
+Requests/sec: 6494021.21
+Transfer/sec:    736.99MB
+
+===== Sun May 25 23:42:43 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    17.16ms   18.05ms 182.44ms   88.01%
+    Req/Sec   846.85k   211.88k    1.51M    70.99%
+  66505589 requests in 10.09s, 7.37GB read
+  Socket errors: connect 0, read 100638, write 5, timeout 0
+Requests/sec: 6588248.56
+Transfer/sec:    747.68MB
+
+===== Sun May 25 23:43:09 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    12.35ms   14.57ms 160.19ms   87.70%
+    Req/Sec   358.69k   197.95k    1.01M    62.50%
+  28414996 requests in 10.09s, 3.15GB read
+  Socket errors: connect 0, read 245714, write 1, timeout 0
+Requests/sec: 2815032.11
+Transfer/sec:    319.47MB
+
+===== Sun May 25 23:43:56 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     9.70ms    9.39ms 137.02ms   84.96%
+    Req/Sec   759.54k   175.50k    1.41M    71.03%
+  59742357 requests in 10.09s, 6.62GB read
+  Socket errors: connect 0, read 164238, write 1, timeout 0
+Requests/sec: 5918578.57
+Transfer/sec:    671.68MB
+
