@@ -1,0 +1,25 @@
+- handle backend pool sockets closing gracefully and replacing those connections
+	- keep alive on the tcp layer (tcp keep alive) helps detect dead sockets
+	- Register those connection pool sockets wtih epoll and look for EPOLLHUP (hang up)
+	  or EPOLLERR (error) on the socket.
+	- if you try read you get 0 bytes (EOF).	
+	- normally read blocks, not returns 0. If non-blocking it returns -1 or data
+	  but 0 means EOF for both cases.
+	- tcp keep alives basically adds "probes" to detect dead peers (sockets don't close after inactivity by default)
+
+- http 1.1 compatibility
+	- go backend servers see Connection: close and close the connection
+	- you want to keep the connection open. The go servers think your load balancer
+	  sockets are the client, when actually they only forwards. So you want to remove
+	  but remember that you have the Connection: close header. After getting the response
+	  from the server to the load balancer, add the Connection: close header again to the
+	  client and then let the client close. (I think maybe add keep alive there as well and
+	  handle the close event on the server for the client socket there.)
+	- or I think if you send response to client with the connection close header, you can immediately
+   	  close your connection after you finish writing (research more on that, not sure how true that is)
+	- Also keeping those client sockets open helps the performance a lot because when you use concurrent
+	  connections when testing with wrk, you can keep them open and send many connections through the same
+	  sockets.
+	- client -> lb (remove Connection: close, but remember it) -> server responds to lb -> lb adds close header to response ->
+	  sends response back to client -> lb closes its connection on its end after writing (or maybe waits client close and then
+	  it closes on EPOLL event for HUP or ERR (look into this more))
