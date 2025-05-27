@@ -23,3 +23,8 @@
 	- client -> lb (remove Connection: close, but remember it) -> server responds to lb -> lb adds close header to response ->
 	  sends response back to client -> lb closes its connection on its end after writing (or maybe waits client close and then
 	  it closes on EPOLL event for HUP or ERR (look into this more))
+
+- EOF return is on read? And is that because of keep alive, the OS puts EOF there? Or does the OS tell us with the EPOLLERR or EPOLLHUP?
+	EOF is returned when the TCP FIN happens and then on the next read to that socket, you get EOF. Also EOF does trigger EPOLLIN which
+	is good because we can keep the read event the entire time on epoll, after request is read from the client, still keep the EPOLLIN
+	event becasue we will need it in case any EOF happens.
