@@ -108,3 +108,14 @@ Running 10s test @ http://localhost:8000
 Requests/sec: 4385477.96
 Transfer/sec:    497.70MB
 
+===== Wed May 28 15:42:51 EDT 2025 =====
+Running 10s test @ http://localhost:8000
+  8 threads and 600 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.54ms    7.30ms  98.96ms   75.55%
+    Req/Sec     1.10M   158.73k    1.51M    70.97%
+  87270785 requests in 10.09s, 9.67GB read
+  Socket errors: connect 0, read 216958, write 6, timeout 0
+Requests/sec: 8647367.93
+Transfer/sec:      0.96GB
+
