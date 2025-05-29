@@ -10,13 +10,13 @@
 
 Server::Server(int id) {
 	server_id = id;
-	client_pool.reserve(3000);
-	for (int i = 0; i < 3000; i++) {
+	client_pool.reserve(4000);
+	for (int i = 0; i < 4000; i++) {
 		client_pool.emplace_back(this);
 		free_connections.push_back(&client_pool.back());
 	}
 	epoll_fd = epoll_create1(0);
-	pool = new ConnectionPool(8080, 120, epoll_fd);
+	pool = new ConnectionPool(8080, 500, epoll_fd);
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	int one = 1;
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,  &one, sizeof(one));
@@ -181,20 +181,17 @@ void Server::handle_write(Connection* conn) {
 	int* bytes_written = (conn->state == State::WRITING_REQUEST) ? &conn->req_bytes_written : &conn->res_bytes_written;
 
 	while (true) {
-		// printf("Writing!\n");
 		ssize_t n = write(fd, vec_buffer->data() + (*bytes_written), vec_buffer->size() - (*bytes_written));
 		(*bytes_written) += n;
 		if ((*bytes_written) == vec_buffer->size()) {
-			// printf("COMPLETED writing REQUEST DATA TO SERVER\n");
 			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 			epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = fd} };
 			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 			if (conn->state == State::WRITING_REQUEST)
 				conn->state = State::READING_RESPONSE;
 			else if (conn->state == State::WRITING_RESPONSE){
-				// printf("Finished!\n");
-				close_connection(conn);
-
+				// close_connection(conn);
+				conn->state_reset();
 			}
 
 			break;
@@ -203,6 +200,7 @@ void Server::handle_write(Connection* conn) {
 			// printf("wrote something!\n");
 		}
 		else if (n == 0) {
+			printf("N = 0 on WRITE?, handle this\n");
 			break;
 		}
 		else {

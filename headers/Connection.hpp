@@ -30,6 +30,8 @@ class Connection {
 		int req_bytes_written = 0;
 		std::vector<unsigned char> response_buffer;
 		int res_bytes_written = 0;
+		bool conn_close_header_exists = false;
+
 		Connection(Server* server);	
 		Connection(Server* server, int client_fd);
 		void initiate_write_state();
@@ -37,4 +39,5 @@ class Connection {
 		static int on_request_complete(http_parser* parser);
 		static int on_response_complete(http_parser* parser);
 		void reset();
+		void state_reset();
 };

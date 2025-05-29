@@ -42,3 +42,6 @@ Steps:
 	- 4. send to server, get response (already happens)
 	- 5. get back response and then add in the "Connection: close" and then return to client
 	- 6. Not sure whether to close on my end after that, or let client send EOF (TCP FIN), makes sense to close cuz of the header though.
+	- Q. Will adding the EPOLLOUT | EPOLLET overwrite the read event? Or will it just add. Or should i remove the read, and then add 
+	     EPOLLIN | EPOLLOUT | EPOLLET? (For now deleting then adding all 3 just to be sure, but no need to do an extra command for no reason.
+
