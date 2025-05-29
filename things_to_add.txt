@@ -28,3 +28,17 @@
 	EOF is returned when the TCP FIN happens and then on the next read to that socket, you get EOF. Also EOF does trigger EPOLLIN which
 	is good because we can keep the read event the entire time on epoll, after request is read from the client, still keep the EPOLLIN
 	event becasue we will need it in case any EOF happens.
+
+- add bool to the connection to indicate if "Connection: close" Occured. Can be found by doing a search on the vector. Find the start and then 
+  slice that many bytes from the vector. Send that new connection to the server, get response, add the connection close to response then send off
+  to client, then close the connection. Otherwise if no Connection:close found, then leave the connection open. This will have a massive speed up
+  for the server since most concurrent connectors will basically leave the connection open and therefore we will be able to get more out of it.
+  Also keep read on the entire time. Don't remove the read epoll.
+
+Steps:
+	- 1. find connection: close after getting the entire request by searching the vector
+	- 2. cut it from the vector, and set the boolean indicating connection close
+	- 3. Don't remove the read event from epoll keep that open in case of EOF
+	- 4. send to server, get response (already happens)
+	- 5. get back response and then add in the "Connection: close" and then return to client
+	- 6. Not sure whether to close on my end after that, or let client send EOF (TCP FIN), makes sense to close cuz of the header though.
