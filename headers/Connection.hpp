@@ -27,8 +27,10 @@ class Connection {
 		http_parser response_parser;
 		http_parser_settings response_settings;
 		std::vector<unsigned char> request_buffer;
+		char request_buffer[8192];
 		int req_bytes_written = 0;
 		std::vector<unsigned char> response_buffer;
+		char request_buffer[8192];
 		int res_bytes_written = 0;
 		bool conn_close_header_exists = false;
 
