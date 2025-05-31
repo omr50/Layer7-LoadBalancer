@@ -135,7 +135,6 @@ void Server::create_connection(int client_fd) {
 void Server::handle_read(Connection* conn) {
 	int fd = (conn->state == State::READING_REQUEST) ? conn->client_fd : conn->server_fd;
 
-	char buff[4096];
 	http_parser* parser = (conn->state == State::READING_REQUEST) ? 
 		&conn->request_parser 
 		: &conn->response_parser;
@@ -144,22 +143,20 @@ void Server::handle_read(Connection* conn) {
 		&conn->request_settings
 		: &conn->response_settings;
 
-	std::vector<unsigned char> *vec_buffer = (conn->state == State::READING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
+	char* buffer = (conn->state == State::READING_REQUEST) ? conn->request_buffer: conn->response_buffer;
+	int *bytes_read = (conn->state == State::READING_REQUEST) ? &conn->req_bytes_read : &conn->res_bytes_read;
 
 	while (true) {
-		ssize_t n = read(fd, buff, sizeof(buff));
-
+		char* curr_buff_end = buffer + (*bytes_read);
+		size_t read_limit = BUFF_SIZE - (size_t)(curr_buff_end - buffer);
+		// printf("read limit %d\n", read_limit);
+		ssize_t n = read(fd, curr_buff_end, BUFF_SIZE - (size_t)(curr_buff_end - buffer));
 		if (n > 0) {
-			vec_buffer->insert(
-					vec_buffer->end(),
-					buff,
-					buff + n
-			);
-
+			(*bytes_read) += n;
 			size_t parsed = http_parser_execute(
 					parser,	
 					parser_settings,
-					buff,
+					curr_buff_end,
 					n);
 		} 
 		else if (n == -1 && (errno == EAGAIN|| errno == EWOULDBLOCK)) {
@@ -177,13 +174,19 @@ void Server::handle_read(Connection* conn) {
 
 void Server::handle_write(Connection* conn) {
 	int fd = (conn->state == State::WRITING_REQUEST) ? conn->server_fd: conn->client_fd;
-	std::vector<unsigned char> *vec_buffer = (conn->state == State::WRITING_REQUEST) ? &conn->request_buffer : &conn->response_buffer;
+	char *buffer = (conn->state == State::WRITING_REQUEST) ? conn->request_buffer : conn->response_buffer;
 	int* bytes_written = (conn->state == State::WRITING_REQUEST) ? &conn->req_bytes_written : &conn->res_bytes_written;
+	int* bytes_read = (conn->state == State::WRITING_REQUEST) ? &conn->req_bytes_read: &conn->res_bytes_read;
 
 	while (true) {
-		ssize_t n = write(fd, vec_buffer->data() + (*bytes_written), vec_buffer->size() - (*bytes_written));
+		char* curr_buff_end = buffer + (*bytes_written);
+		// printf("Amount: %d\n", BUFF_SIZE  - (size_t)(curr_buff_end - buffer));
+		int bytes_left = (*bytes_read) - (size_t)(curr_buff_end - buffer);
+		ssize_t n = write(fd, curr_buff_end, bytes_left); 
 		(*bytes_written) += n;
-		if ((*bytes_written) == vec_buffer->size()) {
+		// printf("Bytes Written: %d\n", (*bytes_written));
+		if ((*bytes_written) == (*bytes_read)) {
+			// printf("WROTE ALL!\n");
 			epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 			epoll_event ev { .events = EPOLLIN | EPOLLET, .data = { .fd = fd} };
 			epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
@@ -191,6 +194,7 @@ void Server::handle_write(Connection* conn) {
 				conn->state = State::READING_RESPONSE;
 			else if (conn->state == State::WRITING_RESPONSE){
 				// close_connection(conn);
+				// printf("RESET?\n");
 				conn->state_reset();
 			}
 

@@ -39,6 +39,7 @@ Connection::Connection(Server* server, int client_fd) : server(server), client_f
 }
 
 int Connection::on_request_complete(http_parser* parser) {
+    // printf("REQUEST COMPLETE\n");
     auto* conn = static_cast<Connection*>(parser->data);
     conn->state = State::WRITING_REQUEST;
 
@@ -56,13 +57,14 @@ int Connection::on_request_complete(http_parser* parser) {
 
     // modify vector to remove the Connection: close
     static const char* target = "Connection: close\r\n";
-    static std::vector<unsigned char> target_vector(target, target + strlen(target));
+    static std::vector<char> target_vector(target, target + strlen(target));
 
-    auto it = std::search(conn->request_buffer.begin(), conn->request_buffer.end(), target_vector.begin(), target_vector.end());
+    auto it = std::search(std::begin(conn->request_buffer), std::end(conn->request_buffer), target_vector.begin(), target_vector.end());
 
-    if (it != conn->request_buffer.end()) {
+    if (it != std::end(conn->request_buffer)) {
 	conn->conn_close_header_exists = true;
-	conn->request_buffer.erase(it, it + target_vector.size());	
+	// conn->request_buffer.erase(it, it + target_vector.size());	
+	// printf("IMPLEMENT REMOVE FROM ARRAY!\n");
     }
     
     // conn->initiate_write_state();
@@ -71,6 +73,7 @@ int Connection::on_request_complete(http_parser* parser) {
 
 int Connection::on_response_complete(http_parser* parser) {
 
+    // printf("RESPONSE COMPLETE\n");
     auto* conn = static_cast<Connection*>(parser->data);
     conn->state = State::WRITING_RESPONSE;
 
@@ -82,16 +85,15 @@ int Connection::on_response_complete(http_parser* parser) {
 	// put it back into the function
 	static const char* header = "Connection: close\r\n";
 	static const char* target = "\r\n\r\n";
-    	static std::vector<unsigned char> insert_vector(header, header + strlen(header));
-    	static std::vector<unsigned char> target_vector(target, target + strlen(target));
+    	static std::vector<char> insert_vector(header, header + strlen(header));
+    	static std::vector<char> target_vector(target, target + strlen(target));
 
+    	auto end_of_headers = std::search(std::begin(conn->response_buffer), std::end(conn->response_buffer), target_vector.begin(), target_vector.end());
 
-	std::vector<unsigned char>::iterator end_of_headers = std::search(conn->response_buffer.begin(), conn->response_buffer.end(), target_vector.begin(), target_vector.end());
-
-	if (end_of_headers != conn->response_buffer.end()) {
-
-		end_of_headers += 2;
-		conn->response_buffer.insert(end_of_headers, target_vector.begin(), target_vector.end());
+	if (end_of_headers != std::end(conn->response_buffer)) {
+		// moving forward 2 to add after the /r/n of the previous header
+		// end_of_headers += 2;
+		printf("Handle INSERT!\n");
 	}
     }
     // epoll event might trigger before we get to next iteration so trying to handle write here to see 
@@ -120,13 +122,12 @@ void Connection::reset() {
 
 	state = State::READING_REQUEST;
 
-	request_buffer.clear();
-	response_buffer.clear();
-	request_buffer.reserve(128);
 	// request_buffer.shrink_to_fit();
 	// response_buffer.shrink_to_fit();
 	req_bytes_written = 0;
+	req_bytes_read = 0;
 	res_bytes_written = 0;
+	res_bytes_read = 0;
     	conn_close_header_exists = false;
 
 	// http_parser_init(&request_parser, HTTP_REQUEST);
@@ -143,13 +144,12 @@ void Connection::reset() {
 void Connection::state_reset() {
 
 	state = State::READING_REQUEST;
-	request_buffer.clear();
-	response_buffer.clear();
-	request_buffer.reserve(128);
 	// request_buffer.shrink_to_fit();
 	// response_buffer.shrink_to_fit();
 	req_bytes_written = 0;
+	req_bytes_read = 0;
 	res_bytes_written = 0;
+	res_bytes_read = 0;
 
 	http_parser_init(&request_parser, HTTP_REQUEST);
     	request_parser.data = this;

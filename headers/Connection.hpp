@@ -4,6 +4,8 @@
 #include <vector>
 #include "./ConnectionPool.hpp"
 
+#define BUFF_SIZE 8192 
+
 enum class State {
 	READING_REQUEST,
 	WRITING_REQUEST,
@@ -26,11 +28,11 @@ class Connection {
 		http_parser_settings request_settings;
 		http_parser response_parser;
 		http_parser_settings response_settings;
-		std::vector<unsigned char> request_buffer;
-		char request_buffer[8192];
+		char request_buffer[BUFF_SIZE];
+		int req_bytes_read = 0;
 		int req_bytes_written = 0;
-		std::vector<unsigned char> response_buffer;
-		char request_buffer[8192];
+		char response_buffer[BUFF_SIZE];
+		int res_bytes_read = 0;
 		int res_bytes_written = 0;
 		bool conn_close_header_exists = false;
 
