@@ -45,3 +45,8 @@ Steps:
 	- Q. Will adding the EPOLLOUT | EPOLLET overwrite the read event? Or will it just add. Or should i remove the read, and then add 
 	     EPOLLIN | EPOLLOUT | EPOLLET? (For now deleting then adding all 3 just to be sure, but no need to do an extra command for no reason.
 
+
+
+- after wrk exists, make sure that the connections on the front end all go back to the pool.
+	- Not sure if wrk does a Connection: close or not when it finishes?
+
