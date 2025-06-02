@@ -164,6 +164,7 @@ void Server::handle_read(Connection* conn) {
 		}
 		// n = 0 or other errors
 		else {
+			printf("Read EOF, CONNECTION CLOSING\n");
 			close_connection(conn);
 			return;
 		}
